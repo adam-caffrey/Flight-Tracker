@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fare Board — Tracker Admin</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo:wght@500;600;700;800&display=swap');
+
+  :root {
+    --board-bg: #14171c;
+    --board-panel: #1b1f26;
+    --board-line: #2b3038;
+    --flap-amber: #f5a623;
+    --flap-amber-dim: #8a6320;
+    --text-main: #e8e6df;
+    --text-dim: #8b909c;
+    --ok-green: #4caf7d;
+    --err-red: #d9534f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--board-bg);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(245,166,35,0.05), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(76,175,125,0.04), transparent 40%);
+    color: var(--text-main);
+    font-family: 'Archivo', sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 28px 24px 18px;
+    border-bottom: 1px solid var(--board-line);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .brand .dot { color: var(--flap-amber); font-size: 1.4rem; }
+
+  h1 {
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-size: 1.4rem;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  .subtitle {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+  }
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 28px 24px 80px;
+  }
+
+  section { margin-bottom: 36px; }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    color: var(--flap-amber);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .connect-panel {
+    background: var(--board-panel);
+    border: 1px solid var(--board-line);
+    border-radius: 6px;
+    padding: 18px 20px;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  input, select {
+    width: 100%;
+    background: #101317;
+    border: 1px solid var(--board-line);
+    color: var(--text-main);
+    padding: 9px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--flap-amber-dim);
+  }
+
+  button {
+    font-family: 'Archivo', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 10px 18px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.05s ease, opacity 0.15s ease;
+  }
+  button:active { transform: scale(0.98); }
+
+  .btn-primary { background: var(--flap-amber); color: #1b1200; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-ghost { background: transparent; border: 1px solid var(--board-line); color: var(--text-main); }
+  .btn-ghost:hover { border-color: var(--text-dim); }
+  .btn-danger { background: transparent; border: 1px solid var(--err-red); color: var(--err-red); }
+  .btn-danger:hover { background: rgba(217,83,79,0.1); }
+
+  #status-line {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    margin-top: 10px;
+    min-height: 1em;
+  }
+  #status-line.ok { color: var(--ok-green); }
+  #status-line.err { color: var(--err-red); }
+  #status-line.pending { color: var(--text-dim); }
+
+  .board {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--board-line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .board-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 0.9fr 0.9fr 0.8fr auto;
+    gap: 10px;
+    padding: 14px 16px;
+    align-items: center;
+    border-bottom: 1px solid var(--board-line);
+    background: var(--board-panel);
+  }
+  .board-row:last-child { border-bottom: none; }
+  .board-row.head {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    background: #101317;
+  }
+
+  .flap-name { font-weight: 700; font-size: 0.95rem; }
+  .flap-route {
+    font-family: 'Space Mono', monospace;
+    color: var(--flap-amber);
+    font-size: 0.95rem;
+    letter-spacing: 0.03em;
+  }
+  .flap-sub { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
+  .flap-price { font-family: 'Space Mono', monospace; font-size: 1rem; }
+  .flap-status { font-size: 0.72rem; font-family: 'Space Mono', monospace; }
+  .flap-status.on { color: var(--ok-green); }
+  .flap-status.off { color: var(--text-dim); }
+
+  .row-actions { display: flex; gap: 6px; }
+  .row-actions button { padding: 6px 10px; font-size: 0.75rem; }
+
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+  }
+
+  .form-panel {
+    background: var(--board-panel);
+    border: 1px solid var(--board-line);
+    border-radius: 6px;
+    padding: 20px;
+    display: none;
+  }
+  .form-panel.open { display: block; }
+
+  .form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .toggle-add {
+    margin-bottom: 14px;
+  }
+
+  .subform-block { margin-bottom: 14px; }
+  .subform-block > label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .weekday-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+  .weekday-chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    padding: 7px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--board-line);
+    background: #101317;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.1s ease;
+  }
+  .weekday-chip.active {
+    background: rgba(245,166,35,0.15);
+    border-color: var(--flap-amber-dim);
+    color: var(--flap-amber);
+  }
+
+  #return-fields { transition: opacity 0.15s ease; }
+  #return-fields.hidden { display: none; }
+
+  @media (max-width: 720px) {
+    .board-row { grid-template-columns: 1fr; gap: 4px; }
+    .board-row.head { display: none; }
+    .flap-route::before { content: 'Route  '; color: var(--text-dim); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="dot">●</span>
+    <h1>Fare Board</h1>
+  </div>
+  <div class="subtitle" id="repo-indicator">not connected</div>
+</header>
+
+<main>
+
+  <section>
+    <span class="section-label">01 — Connect to repo</span>
+    <div class="connect-panel">
+      <div class="field-row">
+        <div>
+          <label for="owner">GitHub owner</label>
+          <input id="owner" placeholder="e.g. adam-dev" autocomplete="off">
+        </div>
+        <div>
+          <label for="repo">Repo name</label>
+          <input id="repo" placeholder="e.g. flight-bot" autocomplete="off">
+        </div>
+        <div>
+          <label for="branch">Branch</label>
+          <input id="branch" placeholder="main" value="main" autocomplete="off">
+        </div>
+      </div>
+      <div class="field-row">
+        <div style="grid-column: 1 / -1;">
+          <label for="token">Personal access token (fine-grained, Contents: read/write on this repo only — kept in this tab only, never stored)</label>
+          <input id="token" type="password" placeholder="github_pat_..." autocomplete="off">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="loadTrackers()">Load trackers</button>
+      <div id="status-line"></div>
+    </div>
+  </section>
+
+  <section>
+    <span class="section-label">02 — Active trackers</span>
+    <div class="toggle-add">
+      <button class="btn-primary" id="add-toggle" onclick="toggleAddForm()">+ Add tracker</button>
+    </div>
+
+    <div class="form-panel" id="add-form">
+      <div class="field-row">
+        <div>
+          <label>Name</label>
+          <input id="f-name" placeholder="Japan - May 2027">
+        </div>
+        <div>
+          <label>From (IATA)</label>
+          <input id="f-from" placeholder="DUB" maxlength="3">
+        </div>
+        <div>
+          <label>To (IATA)</label>
+          <input id="f-to" placeholder="NRT" maxlength="3">
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label>Months (comma-sep, YYYY-MM)</label>
+          <input id="f-months" placeholder="2026-07, 2026-08, 2026-09">
+        </div>
+        <div>
+          <label>Trip type</label>
+          <select id="f-triptype" onchange="onTripTypeChange()">
+            <option value="round-trip">Round trip</option>
+            <option value="one-way">One-way</option>
+          </select>
+        </div>
+        <div>
+          <label>Price limit</label>
+          <input id="f-price" placeholder="180">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label>Currency</label>
+          <input id="f-currency" placeholder="EUR" value="EUR">
+        </div>
+        <div>
+          <label>Seat</label>
+          <select id="f-seat">
+            <option value="economy">Economy</option>
+            <option value="premium-economy">Premium economy</option>
+            <option value="business">Business</option>
+            <option value="first">First</option>
+          </select>
+        </div>
+        <div>
+          <label>Max stops (blank = any)</label>
+          <input id="f-maxstops" placeholder="0">
+        </div>
+      </div>
+
+      <div class="subform-block">
+        <label>Depart on which day(s)? (blank = any day)</label>
+        <div class="weekday-picker" id="f-depart-days"></div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label>Depart after (24h, blank = any time)</label>
+          <input id="f-depart-after" placeholder="18:00">
+        </div>
+        <div>
+          <label>Depart before (blank = any time)</label>
+          <input id="f-depart-before" placeholder="23:59">
+        </div>
+      </div>
+
+      <div id="return-fields">
+        <div class="subform-block">
+          <label>Return on which day(s)? (blank = any day)</label>
+          <div class="weekday-picker" id="f-return-days"></div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <label>Return after (blank = any time)</label>
+            <input id="f-return-after" placeholder="17:00">
+          </div>
+          <div>
+            <label>Return before (blank = any time)</label>
+            <input id="f-return-before" placeholder="23:59">
+          </div>
+          <div>
+            <label>Min nights</label>
+            <input id="f-minnights" placeholder="2">
+          </div>
+          <div>
+            <label>Max nights</label>
+            <input id="f-maxnights" placeholder="2">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveTracker()">Save tracker</button>
+        <button class="btn-ghost" onclick="toggleAddForm(false)">Cancel</button>
+      </div>
+    </div>
+
+    <div class="board" id="board">
+      <div class="board-row head">
+        <div>Name</div><div>Route</div><div>Window</div><div>Limit</div><div>Status</div><div></div>
+      </div>
+      <div class="empty-state" id="empty-state">Connect above and load trackers to see your board.</div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+let trackers = [];
+let currentSha = null;
+let editingId = null;
+
+const WEEKDAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+let departDaysState = new Set();
+let returnDaysState = new Set();
+
+function buildWeekdayPicker(containerId, stateSet) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  WEEKDAYS.forEach(day => {
+    const chip = document.createElement('div');
+    chip.className = 'weekday-chip' + (stateSet.has(day) ? ' active' : '');
+    chip.textContent = day;
+    chip.onclick = () => {
+      if (stateSet.has(day)) stateSet.delete(day); else stateSet.add(day);
+      chip.classList.toggle('active');
+    };
+    el.appendChild(chip);
+  });
+}
+
+function onTripTypeChange() {
+  const isOneWay = document.getElementById('f-triptype').value === 'one-way';
+  document.getElementById('return-fields').classList.toggle('hidden', isOneWay);
+}
+
+function setStatus(msg, kind) {
+  const el = document.getElementById('status-line');
+  el.textContent = msg;
+  el.className = kind || '';
+}
+
+function apiBase() {
+  const owner = document.getElementById('owner').value.trim();
+  const repo = document.getElementById('repo').value.trim();
+  return `https://api.github.com/repos/${owner}/${repo}/contents/trackers.json`;
+}
+
+function authHeaders() {
+  const token = document.getElementById('token').value.trim();
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/vnd.github+json'
+  };
+}
+
+async function loadTrackers() {
+  const owner = document.getElementById('owner').value.trim();
+  const repo = document.getElementById('repo').value.trim();
+  const branch = document.getElementById('branch').value.trim() || 'main';
+  if (!owner || !repo) { setStatus('Enter owner and repo first.', 'err'); return; }
+
+  setStatus('Loading trackers.json...', 'pending');
+  try {
+    const res = await fetch(`${apiBase()}?ref=${branch}`, { headers: authHeaders() });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`${res.status} ${res.statusText} — ${body.slice(0,200)}`);
+    }
+    const data = await res.json();
+    currentSha = data.sha;
+    const decoded = decodeURIComponent(escape(atob(data.content)));
+    trackers = JSON.parse(decoded);
+    document.getElementById('repo-indicator').textContent = `${owner}/${repo} @ ${branch}`;
+    setStatus(`Loaded ${trackers.length} tracker(s).`, 'ok');
+    renderBoard();
+  } catch (e) {
+    setStatus('Failed to load: ' + e.message, 'err');
+  }
+}
+
+async function persistTrackers(commitMessage) {
+  const branch = document.getElementById('branch').value.trim() || 'main';
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(trackers, null, 2))));
+  const res = await fetch(`${apiBase()}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: commitMessage,
+      content: content,
+      sha: currentSha,
+      branch: branch
+    })
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`${res.status} ${res.statusText} — ${body.slice(0,200)}`);
+  }
+  const data = await res.json();
+  currentSha = data.content.sha;
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  const empty = document.getElementById('empty-state');
+  board.querySelectorAll('.board-row:not(.head)').forEach(r => r.remove());
+
+  if (trackers.length === 0) {
+    empty.style.display = 'block';
+    empty.textContent = 'No trackers yet. Add one above.';
+    return;
+  }
+  empty.style.display = 'none';
+
+  trackers.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'board-row';
+    const windowStr = (t.months || []).join(', ');
+
+    let tripSub;
+    if (t.one_way) {
+      tripSub = 'one-way';
+    } else {
+      const nights = (t.min_nights === t.max_nights) ? `${t.min_nights}n` : `${t.min_nights}-${t.max_nights}n`;
+      tripSub = `${nights} round-trip`;
+    }
+
+    const departDayStr = (t.depart_days && t.depart_days.length) ? t.depart_days.join('/') : 'any day';
+    const departTimeStr = t.depart_after ? `after ${t.depart_after}` : (t.depart_before ? `before ${t.depart_before}` : '');
+    let daysLine = `out: ${departDayStr}${departTimeStr ? ' ' + departTimeStr : ''}`;
+    if (!t.one_way) {
+      const returnDayStr = (t.return_days && t.return_days.length) ? t.return_days.join('/') : 'any day';
+      const returnTimeStr = t.return_after ? `after ${t.return_after}` : (t.return_before ? `before ${t.return_before}` : '');
+      daysLine += ` · back: ${returnDayStr}${returnTimeStr ? ' ' + returnTimeStr : ''}`;
+    }
+
+    row.innerHTML = `
+      <div>
+        <div class="flap-name">${escapeHtml(t.name || '')}</div>
+        <div class="flap-sub">${tripSub} · ${t.seat || 'economy'}</div>
+      </div>
+      <div>
+        <div class="flap-route">${t.from} → ${t.to}</div>
+        <div class="flap-sub">${escapeHtml(daysLine)}</div>
+      </div>
+      <div class="flap-sub">${escapeHtml(windowStr)}</div>
+      <div class="flap-price">${t.price_limit} ${t.currency || ''}</div>
+      <div class="flap-status ${t.enabled === false ? 'off' : 'on'}">${t.enabled === false ? 'PAUSED' : 'ACTIVE'}</div>
+      <div class="row-actions">
+        <button class="btn-ghost" onclick="editTracker('${t.id}')">Edit</button>
+        <button class="btn-ghost" onclick="toggleEnabled('${t.id}')">${t.enabled === false ? 'Resume' : 'Pause'}</button>
+        <button class="btn-danger" onclick="deleteTracker('${t.id}')">Delete</button>
+      </div>
+    `;
+    board.appendChild(row);
+  });
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function toggleAddForm(force) {
+  const panel = document.getElementById('add-form');
+  const show = force !== undefined ? force : !panel.classList.contains('open');
+  panel.classList.toggle('open', show);
+  if (show) {
+    document.getElementById('add-toggle').textContent = editingId ? 'Editing tracker...' : '+ Add tracker';
+    buildWeekdayPicker('f-depart-days', departDaysState);
+    buildWeekdayPicker('f-return-days', returnDaysState);
+    onTripTypeChange();
+  } else {
+    clearForm();
+    editingId = null;
+  }
+}
+
+function clearForm() {
+  ['f-name','f-from','f-to','f-months','f-price','f-maxstops',
+   'f-depart-after','f-depart-before','f-return-after','f-return-before',
+   'f-minnights','f-maxnights'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-currency').value = 'EUR';
+  document.getElementById('f-seat').value = 'economy';
+  document.getElementById('f-triptype').value = 'round-trip';
+  departDaysState = new Set();
+  returnDaysState = new Set();
+  buildWeekdayPicker('f-depart-days', departDaysState);
+  buildWeekdayPicker('f-return-days', returnDaysState);
+  onTripTypeChange();
+}
+
+function editTracker(id) {
+  const t = trackers.find(x => x.id === id);
+  if (!t) return;
+  editingId = id;
+  document.getElementById('f-name').value = t.name || '';
+  document.getElementById('f-from').value = t.from || '';
+  document.getElementById('f-to').value = t.to || '';
+  document.getElementById('f-months').value = (t.months || []).join(', ');
+  document.getElementById('f-price').value = t.price_limit || '';
+  document.getElementById('f-currency').value = t.currency || 'EUR';
+  document.getElementById('f-seat').value = t.seat || 'economy';
+  document.getElementById('f-maxstops').value = (t.max_stops === null || t.max_stops === undefined) ? '' : t.max_stops;
+  document.getElementById('f-triptype').value = t.one_way ? 'one-way' : 'round-trip';
+  document.getElementById('f-depart-after').value = t.depart_after || '';
+  document.getElementById('f-depart-before').value = t.depart_before || '';
+  document.getElementById('f-return-after').value = t.return_after || '';
+  document.getElementById('f-return-before').value = t.return_before || '';
+  document.getElementById('f-minnights').value = (t.min_nights ?? t.trip_length_days ?? '');
+  document.getElementById('f-maxnights').value = (t.max_nights ?? t.trip_length_days ?? '');
+  departDaysState = new Set(t.depart_days || []);
+  returnDaysState = new Set(t.return_days || []);
+  toggleAddForm(true);
+}
+
+async function saveTracker() {
+  const name = document.getElementById('f-name').value.trim();
+  const from = document.getElementById('f-from').value.trim().toUpperCase();
+  const to = document.getElementById('f-to').value.trim().toUpperCase();
+  const months = document.getElementById('f-months').value.split(',').map(s => s.trim()).filter(Boolean);
+  const price = document.getElementById('f-price').value.trim();
+  const currency = document.getElementById('f-currency').value.trim() || 'EUR';
+  const seat = document.getElementById('f-seat').value;
+  const maxstops = document.getElementById('f-maxstops').value.trim();
+  const oneWay = document.getElementById('f-triptype').value === 'one-way';
+  const departAfter = document.getElementById('f-depart-after').value.trim();
+  const departBefore = document.getElementById('f-depart-before').value.trim();
+  const returnAfter = document.getElementById('f-return-after').value.trim();
+  const returnBefore = document.getElementById('f-return-before').value.trim();
+  const minNights = document.getElementById('f-minnights').value.trim();
+  const maxNights = document.getElementById('f-maxnights').value.trim();
+
+  if (!name || !from || !to || months.length === 0 || !price) {
+    setStatus('Name, route, at least one month, and price limit are required.', 'err');
+    return;
+  }
+  if (!oneWay && (!minNights || !maxNights)) {
+    setStatus('Round trips need min and max nights (use the same value for a fixed length).', 'err');
+    return;
+  }
+
+  const tracker = {
+    id: editingId || (name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString(36)),
+    name, from, to, months,
+    one_way: oneWay,
+    price_limit: parseInt(price, 10),
+    currency,
+    seat,
+    max_stops: maxstops === '' ? null : parseInt(maxstops, 10),
+    depart_days: [...departDaysState],
+    depart_after: departAfter || null,
+    depart_before: departBefore || null,
+    enabled: true
+  };
+
+  if (!oneWay) {
+    tracker.return_days = [...returnDaysState];
+    tracker.return_after = returnAfter || null;
+    tracker.return_before = returnBefore || null;
+    tracker.min_nights = parseInt(minNights, 10);
+    tracker.max_nights = parseInt(maxNights, 10);
+  }
+
+  if (editingId) {
+    const idx = trackers.findIndex(t => t.id === editingId);
+    tracker.enabled = trackers[idx].enabled;
+    trackers[idx] = tracker;
+  } else {
+    trackers.push(tracker);
+  }
+
+  setStatus('Saving to repo...', 'pending');
+  try {
+    await persistTrackers(editingId ? `Update tracker: ${name}` : `Add tracker: ${name}`);
+    setStatus('Saved.', 'ok');
+    toggleAddForm(false);
+    renderBoard();
+  } catch (e) {
+    setStatus('Save failed: ' + e.message, 'err');
+  }
+}
+
+async function toggleEnabled(id) {
+  const t = trackers.find(x => x.id === id);
+  if (!t) return;
+  t.enabled = t.enabled === false ? true : false;
+  setStatus('Updating...', 'pending');
+  try {
+    await persistTrackers(`${t.enabled ? 'Resume' : 'Pause'} tracker: ${t.name}`);
+    setStatus('Updated.', 'ok');
+    renderBoard();
+  } catch (e) {
+    setStatus('Update failed: ' + e.message, 'err');
+  }
+}
+
+async function deleteTracker(id) {
+  const t = trackers.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`Delete tracker "${t.name}"? This can't be undone from here.`)) return;
+  trackers = trackers.filter(x => x.id !== id);
+  setStatus('Deleting...', 'pending');
+  try {
+    await persistTrackers(`Delete tracker: ${t.name}`);
+    setStatus('Deleted.', 'ok');
+    renderBoard();
+  } catch (e) {
+    setStatus('Delete failed: ' + e.message, 'err');
+  }
+}
+</script>
+
+</body>
+</html>
