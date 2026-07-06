@@ -35,7 +35,7 @@ import os
 import smtplib
 import sys
 from dataclasses import dataclass
-from date import date, delta
+from datetime import date, timedelta
 from email.mime.text import MIMEText
 
 from fast_flights import FlightQuery, Passengers, create_query, get_flights
