@@ -34,14 +34,14 @@ import json
 import os
 import smtplib
 import sys
-import time
+import 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from date import date, delta
 from email.mime.text import MIMEText
 
 from fast_flights import FlightQuery, Passengers, create_query, get_flights
 from fast_flights.exceptions import FlightsNotFound
-from fast_flights.model import Flights, SimpleDatetime
+from fast_flights.model import Flights, SimpleDate
 
 TRACKERS_PATH = os.environ.get("TRACKERS_PATH", "trackers.json")
 
@@ -57,9 +57,9 @@ class Hit:
     origin: str
     destination: str
     depart_date: str
-    depart_time: str
+    depart_: str
     return_date: str | None
-    return_time: str | None
+    return_: str | None
     price: int
     airlines: list[str]
     currency: str
@@ -83,7 +83,7 @@ def parse_weekdays(days: list[str] | None) -> set[int] | None:
     return {WEEKDAY_MAP[d.strip().upper()[:3]] for d in days}
 
 
-def parse_time_str(s: str | None) -> int | None:
+def parse__str(s: str | None) -> int | None:
     """'18:00' -> minutes since midnight."""
     if not s:
         return None
@@ -118,7 +118,7 @@ def candidate_pairs(tracker: dict) -> list[tuple[date, date | None]]:
     pairs: list[tuple[date, date | None]] = []
     for d in valid_departures:
         for n in range(min_n, max_n + 1):
-            ret = d + timedelta(days=n)
+            ret = d + delta(days=n)
             if return_days is not None and ret.weekday() not in return_days:
                 continue
             pairs.append((d, ret))
@@ -136,6 +136,11 @@ def leg_departure(flight: Flights, from_code: str) -> SimpleDatetime | None:
 def time_within(dt: SimpleDatetime | None, after_min: int | None, before_min: int | None) -> bool:
     if dt is None:
         return True  # can't verify -- don't silently drop a possible match
+        
+    # FIX: Guard against missing or empty/incomplete time lists
+    if not hasattr(dt, "time") or not dt.time or len(dt.time) < 2:
+        return True  # Can't parse the exact time structure; assume true to avoid skipping a cheap flight
+        
     minutes = dt.time[0] * 60 + dt.time[1]
     if after_min is not None and minutes < after_min:
         return False
@@ -147,6 +152,11 @@ def time_within(dt: SimpleDatetime | None, after_min: int | None, before_min: in
 def fmt_time(dt: SimpleDatetime | None) -> str:
     if dt is None:
         return "?"
+        
+    # FIX: Guard against malformed time lists during string formatting
+    if not hasattr(dt, "time") or not dt.time or len(dt.time) < 2:
+        return "??"
+        
     return f"{dt.time[0]:02d}:{dt.time[1]:02d}"
 
 
