@@ -34,13 +34,16 @@ import json
 import os
 import smtplib
 import sys
+import time
 from dataclasses import dataclass
+# --- STANDARD DATETIME IMPORTS ---
 from datetime import date, timedelta
 from email.mime.text import MIMEText
 
+# --- THIRD PARTY IMPORTS ---
 from fast_flights import FlightQuery, Passengers, create_query, get_flights
 from fast_flights.exceptions import FlightsNotFound
-from fast_flights.model import Flights, SimpleDate
+from fast_flights.model import Flights, SimpleDatetime  # Ensure SimpleDatetime is here
 
 TRACKERS_PATH = os.environ.get("TRACKERS_PATH", "trackers.json")
 
