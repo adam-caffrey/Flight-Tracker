@@ -19,18 +19,32 @@ constraints are applied AFTER querying, since Google Flights doesn't accept
 a time filter directly -- we check the actual departure time on the
 returned itinerary's first leg in each direction.
 
-Also tracks how many queries errored out (vs. legitimately returning "no
-flights found"). A high error rate triggers a separate "bot may be broken"
-email, since that usually means the underlying scraper needs an update.
+WORKAROUND FOR A LIBRARY BUG: `fast-flights` (as of 3.0.2) parses Google's
+response by indexing into a big nested list by raw position. For some
+routes/itineraries (long-haul, multi-stop -- e.g. this reliably hits
+DUB->NRT) one leg of one itinerary in the results comes back with an
+unexpected shape, and the library's parser throws mid-loop, discarding
+EVERY itinerary for that query, not just the bad one. Instead of calling
+the library's `get_flights()`, we fetch the raw HTML ourselves and run our
+own copy of its parsing logic with a try/except around each individual
+itinerary, so one malformed entry gets skipped and logged instead of
+silently losing every result for that date pair. If you want to check
+whether upstream has fixed this, look for a `fast-flights` release newer
+than 3.0.2 and try switching back to `get_flights()` directly.
 
-Note: this uses an UNOFFICIAL scraper for Google Flights (the `fast-flights`
-library). No API key, no guaranteed uptime. Keep request volume modest.
+Also tracks how many queries errored out completely (vs. legitimately
+returning "no flights found"). A high error rate triggers a separate
+"bot may be broken" email, since that usually means something bigger
+changed (e.g. Google altered the page structure) and needs a real look.
+
+Note: this uses an UNOFFICIAL scraper for Google Flights. No API key, no
+guaranteed uptime. Keep request volume modest.
 """
 
 from __future__ import annotations
 
 import calendar
-import json
+import json as jsonlib
 import os
 import smtplib
 import sys
@@ -39,9 +53,18 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from email.mime.text import MIMEText
 
-from fast_flights import FlightQuery, Passengers, create_query, get_flights
+from selectolax.lexbor import LexborHTMLParser
+
+from fast_flights import FlightQuery, Passengers, Query, create_query
 from fast_flights.exceptions import FlightsNotFound
-from fast_flights.model import Flights, SimpleDatetime
+from fast_flights.fetcher import fetch_flights_html
+from fast_flights.model import (
+    Airport,
+    CarbonEmission,
+    Flights,
+    SimpleDatetime,
+    SingleFlight,
+)
 
 TRACKERS_PATH = os.environ.get("TRACKERS_PATH", "trackers.json")
 
@@ -67,7 +90,7 @@ class Hit:
 
 def load_trackers(path: str) -> list[dict]:
     with open(path, "r") as f:
-        trackers = json.load(f)
+        trackers = jsonlib.load(f)
     return [t for t in trackers if t.get("enabled", True)]
 
 
@@ -123,6 +146,79 @@ def candidate_pairs(tracker: dict) -> list[tuple[date, date | None]]:
                 continue
             pairs.append((d, ret))
     return pairs
+
+
+def resilient_get_flights(query: Query) -> tuple[list[Flights], int]:
+    """Fetch + parse Google Flights results ourselves.
+
+    This mirrors fast_flights' own parser.parse_js, but wraps each
+    individual itinerary in a try/except so one malformed entry is skipped
+    (and counted) instead of aborting the whole batch. See the module
+    docstring for why this exists.
+
+    Returns (flights, skipped_count).
+    """
+    html = fetch_flights_html(query)
+    html_parser = LexborHTMLParser(html)
+    script = html_parser.css_first(r"script.ds\:1")
+    if script is None:
+        raise FlightsNotFound("no flight data found in response")
+
+    js = script.text()
+    data = js.split("data:", 1)[1].rsplit(",", 1)[0]
+    if data.endswith("errorHasStatus: true"):
+        raise FlightsNotFound("no flights found; received error")
+
+    payload = jsonlib.loads(data)
+
+    results: list[Flights] = []
+    skipped = 0
+
+    top = payload[3][0] if len(payload) > 3 and payload[3] else None
+    if not top:
+        return results, skipped
+
+    for k in top:
+        try:
+            flight = k[0]
+            price = k[1][0][1]
+            typ = flight[0]
+            airlines = flight[1]
+
+            sg_flights: list[SingleFlight] = []
+            for single_flight in flight[2]:
+                from_airport = Airport(code=single_flight[3], name=single_flight[4])
+                to_airport = Airport(code=single_flight[6], name=single_flight[5])
+                departure = SimpleDatetime(date=single_flight[20], time=single_flight[8])
+                arrival = SimpleDatetime(date=single_flight[21], time=single_flight[10])
+                plane_type = single_flight[17]
+                duration = single_flight[11]
+                sg_flights.append(
+                    SingleFlight(
+                        from_airport=from_airport,
+                        to_airport=to_airport,
+                        departure=departure,
+                        arrival=arrival,
+                        duration=duration,
+                        plane_type=plane_type,
+                    )
+                )
+
+            extras = flight[22]
+            results.append(
+                Flights(
+                    type=typ,
+                    price=price,
+                    airlines=airlines,
+                    flights=sg_flights,
+                    carbon=CarbonEmission(typical_on_route=extras[8], emission=extras[7]),
+                )
+            )
+        except Exception:
+            skipped += 1
+            continue
+
+    return results, skipped
 
 
 def leg_departure(flight: Flights, from_code: str) -> SimpleDatetime | None:
@@ -187,12 +283,19 @@ def check_one_pair(
     )
 
     try:
-        result = get_flights(query)
+        result, skipped = resilient_get_flights(query)
     except FlightsNotFound:
         return [], False
     except Exception as e:
         print(f"  ! error checking {origin}->{destination} {depart}/{ret}: {e}", file=sys.stderr)
         return [], True
+
+    if skipped:
+        print(
+            f"  (skipped {skipped} malformed itinerary result(s) for "
+            f"{origin}->{destination} {depart}/{ret}, kept {len(result)} good one(s))",
+            file=sys.stderr,
+        )
 
     hits: list[Hit] = []
     for f in result:
