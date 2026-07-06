@@ -1,21 +1,5 @@
 [
   {
-    "id": "japan-may-2027",
-    "name": "Japan - May 2027",
-    "from": "DUB",
-    "to": "NRT",
-    "months": [
-      "2027-05"
-    ],
-    "one_way": false,
-    "trip_length_days": 21,
-    "price_limit": 650,
-    "currency": "EUR",
-    "seat": "economy",
-    "max_stops": 0,
-    "enabled": true
-  },
-  {
     "id": "bali-sept",
     "name": "Bali honeymoon",
     "from": "DUB",
