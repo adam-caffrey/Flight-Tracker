@@ -4,10 +4,21 @@
     "name": "Paris weekends (Jul-Dec)",
     "from": "DUB",
     "to": "CDG",
-    "months": ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"],
+    "months": [
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+      "2026-11",
+      "2026-12"
+    ],
     "one_way": false,
-    "depart_days": ["Fri"],
-    "return_days": ["Sun"],
+    "depart_days": [
+      "Fri"
+    ],
+    "return_days": [
+      "Sun"
+    ],
     "min_nights": 2,
     "max_nights": 2,
     "depart_after": "18:00",
@@ -23,7 +34,9 @@
     "name": "Japan - May 2027",
     "from": "DUB",
     "to": "NRT",
-    "months": ["2027-05"],
+    "months": [
+      "2027-05"
+    ],
     "one_way": false,
     "trip_length_days": 21,
     "price_limit": 650,
@@ -37,7 +50,9 @@
     "name": "Bali honeymoon",
     "from": "DUB",
     "to": "DPS",
-    "months": ["2026-09"],
+    "months": [
+      "2026-09"
+    ],
     "one_way": false,
     "trip_length_days": 14,
     "price_limit": 750,
@@ -45,5 +60,37 @@
     "seat": "economy",
     "max_stops": 1,
     "enabled": true
+  },
+  {
+    "id": "berlin-trip-mr9stagi",
+    "name": "Berlin trip",
+    "from": "DUB",
+    "to": "BER",
+    "months": [
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+      "2026-11",
+      "2026-12"
+    ],
+    "one_way": false,
+    "price_limit": 130,
+    "currency": "EUR",
+    "seat": "economy",
+    "max_stops": 0,
+    "depart_days": [
+      "Fri"
+    ],
+    "depart_after": "18:00",
+    "depart_before": null,
+    "enabled": true,
+    "return_days": [
+      "Sun"
+    ],
+    "return_after": "15:00",
+    "return_before": null,
+    "min_nights": 2,
+    "max_nights": 2
   }
 ]
