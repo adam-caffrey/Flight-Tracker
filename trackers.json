@@ -1,0 +1,49 @@
+[
+  {
+    "id": "paris-weekends",
+    "name": "Paris weekends (Jul-Dec)",
+    "from": "DUB",
+    "to": "CDG",
+    "months": ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"],
+    "one_way": false,
+    "depart_days": ["Fri"],
+    "return_days": ["Sun"],
+    "min_nights": 2,
+    "max_nights": 2,
+    "depart_after": "18:00",
+    "return_after": "17:00",
+    "price_limit": 180,
+    "currency": "EUR",
+    "seat": "economy",
+    "max_stops": 0,
+    "enabled": true
+  },
+  {
+    "id": "japan-may-2027",
+    "name": "Japan - May 2027",
+    "from": "DUB",
+    "to": "NRT",
+    "months": ["2027-05"],
+    "one_way": false,
+    "trip_length_days": 21,
+    "price_limit": 650,
+    "currency": "EUR",
+    "seat": "economy",
+    "max_stops": 0,
+    "enabled": true
+  },
+  {
+    "id": "bali-sept",
+    "name": "Bali honeymoon",
+    "from": "DUB",
+    "to": "DPS",
+    "months": ["2026-09"],
+    "one_way": false,
+    "trip_length_days": 14,
+    "price_limit": 750,
+    "currency": "EUR",
+    "seat": "economy",
+    "max_stops": 1,
+    "enabled": true
+  }
+]
