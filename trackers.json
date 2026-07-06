@@ -1,21 +1,5 @@
 [
   {
-    "id": "bali-sept",
-    "name": "Bali honeymoon",
-    "from": "DUB",
-    "to": "DPS",
-    "months": [
-      "2026-09"
-    ],
-    "one_way": false,
-    "trip_length_days": 14,
-    "price_limit": 750,
-    "currency": "EUR",
-    "seat": "economy",
-    "max_stops": 1,
-    "enabled": true
-  },
-  {
     "id": "berlin-trip-mr9stagi",
     "name": "Berlin trip",
     "from": "DUB",
