@@ -1,0 +1,33 @@
+name: Daily flight price check
+
+on:
+  schedule:
+    # Runs at 07:00 UTC every day. Edit the cron to change the time.
+    - cron: "0 7 * * *"
+  workflow_dispatch: {}  # lets you trigger it manually from the Actions tab
+
+jobs:
+  check-flights:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run flight checker
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+          # Optional overrides -- safe to leave unset, defaults are in flight_checker.py
+          REQUEST_DELAY_SECONDS: "3"
+          ERROR_RATE_ALERT_THRESHOLD: "0.5"
+          MIN_QUERIES_BEFORE_ALERTING: "3"
+        run: python flight_checker.py
