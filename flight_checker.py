@@ -85,7 +85,7 @@ def parse_weekdays(days: list[str] | None) -> set[int] | None:
     return {WEEKDAY_MAP[d.strip().upper()[:3]] for d in days}
 
 
-def parse__str(s: str | None) -> int | None:
+def parse_time_str(s: str | None) -> int | None:
     """'18:00' -> minutes since midnight."""
     if not s:
         return None
