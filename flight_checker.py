@@ -34,7 +34,6 @@ import json
 import os
 import smtplib
 import sys
-import 
 from dataclasses import dataclass
 from date import date, delta
 from email.mime.text import MIMEText
