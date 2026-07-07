@@ -183,5 +183,34 @@
     "return_before": null,
     "min_nights": 2,
     "max_nights": 2
+  },
+  {
+    "id": "budapest-mragrdaz",
+    "name": "Budapest",
+    "from": "DUB",
+    "to": "BUD",
+    "months": [
+      "2026-09",
+      "2026-10",
+      "2026-11"
+    ],
+    "one_way": false,
+    "price_limit": 100,
+    "currency": "EUR",
+    "seat": "economy",
+    "max_stops": 0,
+    "depart_days": [
+      "Fri"
+    ],
+    "depart_after": "18:00",
+    "depart_before": null,
+    "enabled": true,
+    "return_days": [
+      "Sun"
+    ],
+    "return_after": "16:00",
+    "return_before": null,
+    "min_nights": 2,
+    "max_nights": 2
   }
 ]
