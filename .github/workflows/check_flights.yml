@@ -19,6 +19,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Random start delay (avoid firing at the exact same second daily)
+        run: sleep $((RANDOM % 900))  # up to 15 minutes
+
       - name: Run flight checker
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
@@ -27,7 +30,16 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERT_TO: ${{ secrets.ALERT_TO }}
           # Optional overrides -- safe to leave unset, defaults are in flight_checker.py
-          REQUEST_DELAY_SECONDS: "3"
+          REQUEST_DELAY_SECONDS: "5"
+          REQUEST_JITTER_SECONDS: "4"   # each request waits 5-9s, randomized, not a fixed beat
           ERROR_RATE_ALERT_THRESHOLD: "0.5"
           MIN_QUERIES_BEFORE_ALERTING: "3"
+          # Set to "true" to get a short confirmation email every day even
+          # when no flights are found -- useful for confirming the bot is
+          # still alive, at the cost of one extra email per day.
+          SEND_DAILY_SUMMARY: "false"
+          # Optional: only needed if you've set up a proxy (see README) to
+          # work around Google blocking GitHub's shared IP ranges. Leave
+          # this secret unset/empty to use GitHub's IP directly.
+          PROXY_URL: ${{ secrets.PROXY_URL }}
         run: python flight_checker.py
