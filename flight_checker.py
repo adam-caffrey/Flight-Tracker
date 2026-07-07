@@ -46,6 +46,7 @@ from __future__ import annotations
 import calendar
 import json as jsonlib
 import os
+import random
 import smtplib
 import sys
 import time
@@ -72,6 +73,11 @@ TRACKERS_PATH = os.environ.get("TRACKERS_PATH", "trackers.json")
 
 ERROR_RATE_ALERT_THRESHOLD = float(os.environ.get("ERROR_RATE_ALERT_THRESHOLD", "0.5"))
 MIN_QUERIES_BEFORE_ALERTING = int(os.environ.get("MIN_QUERIES_BEFORE_ALERTING", "3"))
+
+# Optional: route requests through a proxy (helps if GitHub Actions' shared IP
+# ranges are getting blocked/CAPTCHA'd by Google). Leave unset to use GitHub's
+# IP directly. Format: "http://user:pass@host:port" or "http://host:port".
+PROXY_URL = os.environ.get("PROXY_URL") or None
 
 WEEKDAY_MAP = {"MON": 0, "TUE": 1, "WED": 2, "THU": 3, "FRI": 4, "SAT": 5, "SUN": 6}
 
@@ -160,11 +166,29 @@ def resilient_get_flights(query: Query) -> tuple[list[Flights], int]:
 
     Returns (flights, skipped_count).
     """
-    html = fetch_flights_html(query)
+    html = fetch_flights_html(query, proxy=PROXY_URL)
     html_parser = LexborHTMLParser(html)
     script = html_parser.css_first(r"script.ds\:1")
     if script is None:
-        raise FlightsNotFound("no flight data found in response")
+        # IMPORTANT: this is NOT the same as "confirmed zero flights". The
+        # underlying fetcher has no HTTP status check at all -- it returns
+        # whatever text comes back even for a 403, a CAPTCHA, a cookie/consent
+        # wall, or a "detected unusual traffic" block page (all common for
+        # requests coming from cloud CI IP ranges like GitHub Actions). Any
+        # of those would have no ds:1 script tag. Treating this as a real
+        # error (not FlightsNotFound) means it counts toward the error rate
+        # and can trigger the breakage-alert email, instead of silently
+        # reporting "no flights found" when the real problem is the request
+        # never got a proper results page at all.
+        snippet = html[:300].replace("\n", " ").strip()
+        blocked_hint = any(
+            kw in html.lower()
+            for kw in ("captcha", "unusual traffic", "consent", "detected unusual", "/sorry/")
+        )
+        raise RuntimeError(
+            f"no data script tag in response (len={len(html)} chars, "
+            f"looks_blocked={blocked_hint}); page started with: {snippet!r}"
+        )
 
     js = script.text()
     data = js.split("data:", 1)[1].rsplit(",", 1)[0]
@@ -328,7 +352,7 @@ def check_one_pair(
     return hits, False
 
 
-def run(trackers: list[dict], delay: float) -> tuple[list[Hit], int, int]:
+def run(trackers: list[dict], delay: float, jitter: float = 0.0) -> tuple[list[Hit], int, int]:
     all_hits: list[Hit] = []
     total_queries = 0
     total_errors = 0
@@ -371,7 +395,7 @@ def run(trackers: list[dict], delay: float) -> tuple[list[Hit], int, int]:
             for h in hits:
                 if h.price <= price_limit:
                     all_hits.append(h)
-            time.sleep(delay)
+            time.sleep(delay + random.uniform(0, jitter) if jitter else delay)
 
     return all_hits, total_queries, total_errors
 
@@ -515,8 +539,9 @@ def main() -> None:
         print("No enabled trackers found in trackers.json. Nothing to do.")
         return
 
-    delay = float(os.environ.get("REQUEST_DELAY_SECONDS", "3"))
-    hits, total_queries, total_errors = run(trackers, delay)
+    delay = float(os.environ.get("REQUEST_DELAY_SECONDS", "5"))
+    jitter = float(os.environ.get("REQUEST_JITTER_SECONDS", "4"))
+    hits, total_queries, total_errors = run(trackers, delay, jitter)
 
     error_rate = (total_errors / total_queries) if total_queries else 0
     print(f"Done. {total_queries} queries, {total_errors} errors ({error_rate:.0%}).")
@@ -527,10 +552,13 @@ def main() -> None:
             text_body=(
                 f"{total_errors} out of {total_queries} queries failed with errors today "
                 f"({error_rate:.0%}).\n\n"
-                "This usually means Google Flights changed something and the "
-                "unofficial `fast-flights` scraper needs an update (check for a "
-                "newer version of the library, or check the GitHub Actions run "
-                "log for the actual error).\n\n"
+                "Two likely causes:\n"
+                "1. Google is blocking or serving a CAPTCHA/consent page to the GitHub "
+                "Actions IP instead of real results (common for cloud CI scrapers). "
+                "Check the run log for 'looks_blocked=True' in the error text.\n"
+                "2. Google Flights changed something and the unofficial `fast-flights` "
+                "scraper needs an update (check for a newer library version).\n\n"
+                "Check the GitHub Actions run log for the exact error text either way.\n\n"
                 "Your price trackers were NOT reliably checked today."
             ),
         )
