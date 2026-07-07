@@ -240,6 +240,26 @@
     font-family: 'Space Mono', monospace;
   }
 
+  select[multiple] {
+    height: auto;
+    padding: 4px;
+  }
+  select[multiple] option {
+    padding: 5px 8px;
+    border-radius: 2px;
+  }
+  select[multiple] option:checked {
+    background: rgba(245,166,35,0.25);
+    color: var(--flap-amber);
+  }
+
+  .hint-text {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    margin-top: 4px;
+  }
+
   .weekday-picker { display: flex; gap: 6px; flex-wrap: wrap; }
   .weekday-chip {
     font-family: 'Space Mono', monospace;
@@ -336,11 +356,13 @@
           <input id="f-to" placeholder="NRT" maxlength="3">
         </div>
       </div>
+      <div class="subform-block">
+        <label>Departure months — pick any combination</label>
+        <select id="f-months-select" multiple size="8" style="width:100%;"></select>
+        <div class="hint-text">Ctrl/Cmd-click (or tap) to select more than one, e.g. September 2026 and January 2027. Shows the next 12 months from today — rolls forward automatically as time passes.</div>
+      </div>
+
       <div class="field-row">
-        <div>
-          <label>Months (comma-sep, YYYY-MM)</label>
-          <input id="f-months" placeholder="2026-07, 2026-08, 2026-09">
-        </div>
         <div>
           <label>Trip type</label>
           <select id="f-triptype" onchange="onTripTypeChange()">
@@ -478,6 +500,58 @@ function forgetToken() {
 }
 
 window.addEventListener('DOMContentLoaded', restoreSavedConnection);
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function monthOptionLabel(ym) {
+  const [y, mo] = ym.split('-');
+  return `${MONTH_NAMES[parseInt(mo, 10) - 1]} ${y}`;
+}
+
+function populateMonthOptions() {
+  const monthsEl = document.getElementById('f-months-select');
+  monthsEl.innerHTML = '';
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const opt = document.createElement('option');
+    opt.value = ym;
+    opt.textContent = monthOptionLabel(ym);
+    monthsEl.appendChild(opt);
+  }
+}
+
+function clearMonthYearSelection() {
+  // Drop any extra options that were added for out-of-window edit values,
+  // then rebuild the standard rolling 12-month list fresh.
+  populateMonthOptions();
+}
+
+function setMonthYearSelection(monthStrings) {
+  // monthStrings like ["2026-09", "2027-01"] -- any value not already in the
+  // rolling 12-month list gets added as an extra option so it doesn't get
+  // silently dropped while editing an older tracker.
+  const monthsEl = document.getElementById('f-months-select');
+  const existing = new Set([...monthsEl.options].map(o => o.value));
+  (monthStrings || []).forEach(ym => {
+    if (!existing.has(ym)) {
+      const opt = document.createElement('option');
+      opt.value = ym;
+      opt.textContent = monthOptionLabel(ym) + ' (outside next 12 months)';
+      monthsEl.appendChild(opt);
+      existing.add(ym);
+    }
+  });
+  const wanted = new Set(monthStrings || []);
+  [...monthsEl.options].forEach(o => { o.selected = wanted.has(o.value); });
+}
+
+function getSelectedMonthYearCombos() {
+  return [...document.getElementById('f-months-select').selectedOptions].map(o => o.value).sort();
+}
+
+populateMonthOptions();
 
 function buildWeekdayPicker(containerId, stateSet) {
   const el = document.getElementById(containerId);
@@ -644,12 +718,13 @@ function toggleAddForm(force) {
 }
 
 function clearForm() {
-  ['f-name','f-from','f-to','f-months','f-price','f-maxstops',
+  ['f-name','f-from','f-to','f-price','f-maxstops',
    'f-depart-after','f-depart-before','f-return-after','f-return-before',
    'f-minnights','f-maxnights'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-currency').value = 'EUR';
   document.getElementById('f-seat').value = 'economy';
   document.getElementById('f-triptype').value = 'round-trip';
+  clearMonthYearSelection();
   departDaysState = new Set();
   returnDaysState = new Set();
   buildWeekdayPicker('f-depart-days', departDaysState);
@@ -664,7 +739,7 @@ function editTracker(id) {
   document.getElementById('f-name').value = t.name || '';
   document.getElementById('f-from').value = t.from || '';
   document.getElementById('f-to').value = t.to || '';
-  document.getElementById('f-months').value = (t.months || []).join(', ');
+  setMonthYearSelection(t.months || []);
   document.getElementById('f-price').value = t.price_limit || '';
   document.getElementById('f-currency').value = t.currency || 'EUR';
   document.getElementById('f-seat').value = t.seat || 'economy';
@@ -685,7 +760,7 @@ async function saveTracker() {
   const name = document.getElementById('f-name').value.trim();
   const from = document.getElementById('f-from').value.trim().toUpperCase();
   const to = document.getElementById('f-to').value.trim().toUpperCase();
-  const months = document.getElementById('f-months').value.split(',').map(s => s.trim()).filter(Boolean);
+  const months = getSelectedMonthYearCombos();
   const price = document.getElementById('f-price').value.trim();
   const currency = document.getElementById('f-currency').value.trim() || 'EUR';
   const seat = document.getElementById('f-seat').value;
