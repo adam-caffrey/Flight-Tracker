@@ -346,6 +346,18 @@ def run(trackers: list[dict], delay: float) -> tuple[list[Hit], int, int]:
         return_before = parse_time_str(tracker.get("return_before"))
 
         pairs = candidate_pairs(tracker)
+
+        if not pairs:
+            print(
+                f"[{name}] WARNING: 0 date combinations to check -- this tracker will find "
+                f"nothing until fixed. Common causes: min_nights > max_nights, or a "
+                f"depart_days/return_days + night-range combination that can never line up "
+                f"(e.g. depart Fri + return Mon needs 3 nights, but max_nights is set lower). "
+                f"Check this tracker's settings.",
+                file=sys.stderr,
+            )
+            continue
+
         print(f"[{name}] Checking {origin} -> {destination} across {len(pairs)} date combination(s)...")
 
         for depart, ret in pairs:
@@ -458,10 +470,43 @@ def send_email(subject: str, text_body: str, html_body: str | None = None) -> No
     msg["From"] = smtp_user
     msg["To"] = to_addr
 
-    with smtplib.SMTP(smtp_host, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, [to_addr], msg.as_string())
+    print(f"Attempting to send email '{subject}' via {smtp_host}:{smtp_port} to {to_addr}...")
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, [to_addr], msg.as_string())
+        print(f"  -> SMTP server accepted the email '{subject}'.")
+    except Exception as e:
+        # Print a clear, specific diagnostic before re-raising. Re-raising
+        # (rather than swallowing the error) makes the GitHub Actions job
+        # fail loudly -- GitHub emails you about failed workflow runs by
+        # default, which is exactly the fallback you want if the bot's own
+        # email can't get out. Check Settings -> Notifications on your
+        # GitHub account if you're not seeing those.
+        print(f"  !!! FAILED to send email '{subject}': {type(e).__name__}: {e}", file=sys.stderr)
+        raise
+
+
+def send_daily_summary_if_requested(hits: list[Hit], total_queries: int, total_errors: int) -> None:
+    """Optional heartbeat: sends a short status email even when nothing was
+    found, so silence never means 'maybe it crashed, who knows'. Turn on by
+    setting SEND_DAILY_SUMMARY=true as a workflow env var."""
+    if os.environ.get("SEND_DAILY_SUMMARY", "false").lower() != "true":
+        return
+    error_rate = (total_errors / total_queries) if total_queries else 0
+    send_email(
+        subject=f"✅ Flight bot ran OK -- {len(hits)} hit(s), {total_queries} checked",
+        text_body=(
+            f"Daily check complete.\n\n"
+            f"Queries run: {total_queries}\n"
+            f"Errors: {total_errors} ({error_rate:.0%})\n"
+            f"Flights under price limit: {len(hits)}\n\n"
+            "This is just a heartbeat confirming the bot ran -- disable it "
+            "anytime by removing SEND_DAILY_SUMMARY from the workflow."
+        ),
+    )
+    print("Daily summary (heartbeat) email sent.")
 
 
 def main() -> None:
@@ -500,6 +545,8 @@ def main() -> None:
         print("Price alert email sent.")
     elif error_rate < ERROR_RATE_ALERT_THRESHOLD:
         print("No flights found under any tracker's price limit today.")
+
+    send_daily_summary_if_requested(hits, total_queries, total_errors)
 
 
 if __name__ == "__main__":
