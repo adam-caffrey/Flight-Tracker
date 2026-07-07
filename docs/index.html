@@ -781,6 +781,10 @@ async function saveTracker() {
     setStatus('Round trips need min and max nights (use the same value for a fixed length).', 'err');
     return;
   }
+  if (!oneWay && parseInt(minNights, 10) > parseInt(maxNights, 10)) {
+    setStatus('Min nights can\'t be greater than max nights -- this would silently match zero dates.', 'err');
+    return;
+  }
 
   const tracker = {
     id: editingId || (name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString(36)),
