@@ -51,7 +51,9 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import date, timedelta
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape as html_escape
 
 from selectolax.lexbor import LexborHTMLParser
 
@@ -362,28 +364,96 @@ def run(trackers: list[dict], delay: float) -> tuple[list[Hit], int, int]:
     return all_hits, total_queries, total_errors
 
 
+def _group_hits_by_tracker(hits: list[Hit]) -> dict[str, list[Hit]]:
+    groups: dict[str, list[Hit]] = {}
+    for h in hits:
+        groups.setdefault(h.tracker_name, []).append(h)
+    for group_hits in groups.values():
+        group_hits.sort(key=lambda h: h.price)
+    return groups
+
+
 def format_price_email(hits: list[Hit]) -> str:
-    hits_sorted = sorted(hits, key=lambda h: h.price)
-    lines = ["Flights found under your price limit:\n"]
-    for h in hits_sorted:
-        trip = f"{h.depart_date} {h.depart_time}"
-        if h.return_date:
-            trip += f"  ->  back {h.return_date} {h.return_time}"
-        lines.append(
-            f"- [{h.tracker_name}] {h.origin} -> {h.destination} | {trip} | "
-            f"{h.price} {h.currency} | {', '.join(h.airlines)}"
-        )
+    """Plain-text version, grouped by tracker, for clients that don't render HTML."""
+    groups = _group_hits_by_tracker(hits)
+    lines = [f"{len(hits)} flight(s) found under your price limit(s):\n"]
+    for tracker_name, group_hits in groups.items():
+        lines.append(f"=== {tracker_name} ===")
+        for h in group_hits:
+            trip = f"{h.depart_date} {h.depart_time}"
+            if h.return_date:
+                trip += f"  ->  back {h.return_date} {h.return_time}"
+            lines.append(
+                f"- {h.origin} -> {h.destination} | {trip} | {h.price} {h.currency} | "
+                f"{', '.join(h.airlines)}"
+            )
+        lines.append("")
     return "\n".join(lines)
 
 
-def send_email(subject: str, body: str) -> None:
+def format_price_email_html(hits: list[Hit]) -> str:
+    """HTML version, grouped by tracker with a header per tracker."""
+    groups = _group_hits_by_tracker(hits)
+
+    sections = []
+    for tracker_name, group_hits in groups.items():
+        rows = "".join(
+            f"""
+            <tr>
+              <td style="padding:8px 12px;border-bottom:1px solid #e5e5e5;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;">{html_escape(h.origin)} &rarr; {html_escape(h.destination)}</td>
+              <td style="padding:8px 12px;border-bottom:1px solid #e5e5e5;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;">{h.depart_date} {h.depart_time}{' &rarr; back ' + h.return_date + ' ' + h.return_time if h.return_date else ''}</td>
+              <td style="padding:8px 12px;border-bottom:1px solid #e5e5e5;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;color:#1a7f37;white-space:nowrap;">{h.price} {html_escape(h.currency)}</td>
+              <td style="padding:8px 12px;border-bottom:1px solid #e5e5e5;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#666;">{html_escape(', '.join(h.airlines))}</td>
+            </tr>"""
+            for h in group_hits
+        )
+        sections.append(f"""
+        <h2 style="font-family:Arial,Helvetica,sans-serif;font-size:17px;color:#1a1a1a;margin:26px 0 10px;padding-bottom:6px;border-bottom:2px solid #1a7f37;">
+          &#9992;&#65039; {html_escape(tracker_name)}
+        </h2>
+        <table role="presentation" style="border-collapse:collapse;width:100%;margin-bottom:4px;">
+          <tr style="background:#f6f6f6;">
+            <th style="text-align:left;padding:6px 12px;font-family:Arial,Helvetica,sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:#888;">Route</th>
+            <th style="text-align:left;padding:6px 12px;font-family:Arial,Helvetica,sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:#888;">Dates</th>
+            <th style="text-align:left;padding:6px 12px;font-family:Arial,Helvetica,sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:#888;">Price</th>
+            <th style="text-align:left;padding:6px 12px;font-family:Arial,Helvetica,sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:#888;">Airline(s)</th>
+          </tr>
+          {rows}
+        </table>
+        """)
+
+    return f"""\
+<html>
+  <body style="margin:0;padding:20px;background:#fafafa;">
+    <div style="max-width:640px;margin:0 auto;background:#ffffff;padding:24px 28px;border-radius:8px;border:1px solid #eee;">
+      <h1 style="font-family:Arial,Helvetica,sans-serif;font-size:19px;color:#111;margin:0 0 4px;">
+        &#9992;&#65039; Flights under your price limit
+      </h1>
+      <p style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#999;margin:0 0 4px;">
+        {len(hits)} flight(s) found across {len(groups)} tracker(s).
+      </p>
+      {"".join(sections)}
+    </div>
+  </body>
+</html>"""
+
+
+def send_email(subject: str, text_body: str, html_body: str | None = None) -> None:
     smtp_host = os.environ["SMTP_HOST"]
     smtp_port = int(os.environ.get("SMTP_PORT", "587"))
     smtp_user = os.environ["SMTP_USER"]
     smtp_pass = os.environ["SMTP_PASS"]
     to_addr = os.environ.get("ALERT_TO", smtp_user)
 
-    msg = MIMEText(body)
+    if html_body:
+        msg = MIMEMultipart("alternative")
+        # Plain text first, HTML last -- clients that support HTML render the
+        # last part; clients that don't fall back to the plain text part.
+        msg.attach(MIMEText(text_body, "plain"))
+        msg.attach(MIMEText(html_body, "html"))
+    else:
+        msg = MIMEText(text_body)
+
     msg["Subject"] = subject
     msg["From"] = smtp_user
     msg["To"] = to_addr
@@ -409,7 +479,7 @@ def main() -> None:
     if total_queries >= MIN_QUERIES_BEFORE_ALERTING and error_rate >= ERROR_RATE_ALERT_THRESHOLD:
         send_email(
             subject="⚠️ Flight price bot may be broken",
-            body=(
+            text_body=(
                 f"{total_errors} out of {total_queries} queries failed with errors today "
                 f"({error_rate:.0%}).\n\n"
                 "This usually means Google Flights changed something and the "
@@ -424,7 +494,8 @@ def main() -> None:
     if hits:
         send_email(
             subject=f"✈️ {len(hits)} flight(s) found under your price limit",
-            body=format_price_email(hits),
+            text_body=format_price_email(hits),
+            html_body=format_price_email_html(hits),
         )
         print("Price alert email sent.")
     elif error_rate < ERROR_RATE_ALERT_THRESHOLD:
