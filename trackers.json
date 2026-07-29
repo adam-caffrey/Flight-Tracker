@@ -362,5 +362,39 @@
     "return_before": null,
     "min_nights": 2,
     "max_nights": 2
+  },
+  {
+    "id": "benidorm-ms6mwjag",
+    "name": "Benidorm",
+    "from": "DUB",
+    "to": "ALC",
+    "months": [
+      "2026-08",
+      "2026-09",
+      "2026-10",
+      "2027-04",
+      "2027-05",
+      "2027-06"
+    ],
+    "one_way": false,
+    "price_limit": 200,
+    "currency": "EUR",
+    "seat": "economy",
+    "max_stops": 0,
+    "depart_days": [
+      "Thu",
+      "Fri"
+    ],
+    "depart_after": null,
+    "depart_before": null,
+    "enabled": true,
+    "return_days": [
+      "Mon",
+      "Tue"
+    ],
+    "return_after": "13:00",
+    "return_before": null,
+    "min_nights": 3,
+    "max_nights": 5
   }
 ]
