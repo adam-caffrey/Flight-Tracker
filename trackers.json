@@ -393,5 +393,34 @@
     "return_before": null,
     "min_nights": 3,
     "max_nights": 5
+  },
+  {
+    "id": "benidorm-me-ms7967gz",
+    "name": "Benidorm - Me",
+    "from": "DUB",
+    "to": "ALC",
+    "months": [
+      "2026-08",
+      "2026-10",
+      "2026-11"
+    ],
+    "one_way": false,
+    "price_limit": 150,
+    "currency": "EUR",
+    "seat": "economy",
+    "max_stops": 0,
+    "depart_days": [
+      "Fri"
+    ],
+    "depart_after": "18:00",
+    "depart_before": null,
+    "enabled": true,
+    "return_days": [
+      "Sun"
+    ],
+    "return_after": "14:00",
+    "return_before": null,
+    "min_nights": 2,
+    "max_nights": 2
   }
 ]
