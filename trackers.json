@@ -365,19 +365,16 @@
   },
   {
     "id": "benidorm-ms6mwjag",
-    "name": "Benidorm",
+    "name": "Benidorm - Dad",
     "from": "DUB",
     "to": "ALC",
     "months": [
       "2026-08",
       "2026-09",
-      "2026-10",
-      "2027-04",
-      "2027-05",
-      "2027-06"
+      "2026-10"
     ],
     "one_way": false,
-    "price_limit": 200,
+    "price_limit": 150,
     "currency": "EUR",
     "seat": "economy",
     "max_stops": 0,
