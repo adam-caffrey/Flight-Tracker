@@ -182,7 +182,7 @@
       "2027-04"
     ],
     "one_way": false,
-    "price_limit": 100,
+    "price_limit": 140,
     "currency": "EUR",
     "seat": "economy",
     "max_stops": 0,
