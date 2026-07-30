@@ -245,7 +245,7 @@
       "2026-12"
     ],
     "one_way": false,
-    "price_limit": 40,
+    "price_limit": 60,
     "currency": "EUR",
     "seat": "economy",
     "max_stops": 0,
