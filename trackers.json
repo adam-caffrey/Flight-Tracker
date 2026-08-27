@@ -365,7 +365,7 @@
   },
   {
     "id": "benidorm-me-ms7967gz",
-    "name": "Benidorm - Me",
+    "name": "Benidorm",
     "from": "DUB",
     "to": "ALC",
     "months": [
@@ -375,7 +375,7 @@
       "2026-11"
     ],
     "one_way": false,
-    "price_limit": 150,
+    "price_limit": 100,
     "currency": "EUR",
     "seat": "economy",
     "max_stops": 0,
